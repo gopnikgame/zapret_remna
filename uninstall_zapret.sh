@@ -42,7 +42,6 @@ confirm_removal() {
     echo "  - /usr/local/share/xray/zapret.dat"
     echo "  - /usr/local/bin/update_zapret.sh"
     echo "  - Задачу cron для автоматического обновления"
-    echo "  - /opt/remnanode/zapret.dat"
     echo "  - Volume из docker-compose.yml (с созданием резервной копии)"
     echo "  - /var/log/zapret_update.log"
     echo
@@ -81,12 +80,6 @@ remove_files() {
     if [[ -f "/usr/local/bin/update_zapret.sh" ]]; then
         rm -f "/usr/local/bin/update_zapret.sh"
         log_success "Удален /usr/local/bin/update_zapret.sh"
-    fi
-    
-    # Копия в директории проекта
-    if [[ -f "/opt/remnanode/zapret.dat" ]]; then
-        rm -f "/opt/remnanode/zapret.dat"
-        log_success "Удален /opt/remnanode/zapret.dat"
     fi
     
     # Файл логов
@@ -171,7 +164,7 @@ main() {
     
     echo
     log_success "Удаление завершено!"
-    log_info "Все компоненты zapret.dat были удалены из системы"
+    log_info "Все компоненты zapрет.dat были удалены из системы"
     log_info "Резервные копии docker-compose.yml сохранены в /opt/remnanode/"
 }
 
