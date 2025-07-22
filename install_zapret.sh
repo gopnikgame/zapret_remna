@@ -117,9 +117,17 @@ if [[ -f "$ZAPRET_PATH" ]] && cmp -s "$TEMP_FILE" "$ZAPRET_PATH"; then
     exit 0
 fi
 
-# Замена файла
+# Замена основного файла
 mv "$TEMP_FILE" "$ZAPRET_PATH"
 log_message "zapret.dat обновлен в $ZAPRET_PATH"
+
+# Копирование обновленного файла в директорию RemnaNode для Docker volume
+if [[ -d "$REMNANODE_PATH" ]]; then
+    cp "$ZAPRET_PATH" "$REMNANODE_PATH/zapret.dat"
+    log_message "zapret.dat скопирован в $REMNANODE_PATH/zapret.dat"
+else
+    log_message "WARNING: Директория RemnaNode не найдена в $REMNANODE_PATH"
+fi
 
 # Перезапуск RemnaNode для применения обновлений
 if [[ -d "$REMNANODE_PATH" ]] && [[ -f "$REMNANODE_PATH/docker-compose.yml" ]]; then
@@ -130,7 +138,7 @@ if [[ -d "$REMNANODE_PATH" ]] && [[ -f "$REMNANODE_PATH/docker-compose.yml" ]]; 
     docker compose up -d >> "$LOG_FILE" 2>&1
     log_message "RemnaNode перезапущен"
 else
-    log_message "WARNING: Директория RemnaNode не найдена в $REMNANODE_PATH"
+    log_message "WARNING: Файл docker-compose.yml не найден в $REMNANODE_PATH"
 fi
 
 log_message "Обновление завершено"
@@ -177,7 +185,7 @@ services:
         env_file:
             - .env
         volumes:
-            - '/usr/local/share/xray/zapret.dat:/usr/local/share/xray/zapret.dat:ro'
+            - './zapret.dat:/usr/local/share/xray/zapret.dat'
 EOF
     else
         # Проверка наличия volume в существующем файле
@@ -191,16 +199,22 @@ EOF
             # Добавление volume секции
             if grep -q "volumes:" "$DOCKER_COMPOSE_PATH"; then
                 # volumes секция уже существует, добавляем наш volume
-                sed -i '/volumes:/a\            - '\''/usr/local/share/xray/zapret.dat:/usr/local/share/xray/zapret.dat:ro'\''' "$DOCKER_COMPOSE_PATH"
+                sed -i '/volumes:/a\            - '\''./zapret.dat:/usr/local/share/xray/zapret.dat'\''' "$DOCKER_COMPOSE_PATH"
             else
                 # volumes секции нет, создаем её
-                sed -i '/env_file:/a\        volumes:\n            - '\''/usr/local/share/xray/zapret.dat:/usr/local/share/xray/zapret.dat:ro'\''' "$DOCKER_COMPOSE_PATH"
+                sed -i '/env_file:/a\        volumes:\n            - '\''./zapret.dat:/usr/local/share/xray/zapret.dat'\''' "$DOCKER_COMPOSE_PATH"
             fi
             log_success "Volume для zapret.dat добавлен в docker-compose.yml"
         fi
     fi
     
-    log_success "docker-compose.yml настроен для использования /usr/local/share/xray/zapret.dat"
+    # Копирование zapret.dat в директорию проекта для Docker volume
+    if [[ -f "/usr/local/share/xray/zapret.dat" ]]; then
+        cp /usr/local/share/xray/zapret.dat /opt/remnanode/zapret.dat
+        log_success "zapret.dat скопирован в /opt/remnanode/ для Docker volume"
+    fi
+    
+    log_success "docker-compose.yml настроен для использования ./zapret.dat"
 }
 
 # Перезапуск RemnaNode

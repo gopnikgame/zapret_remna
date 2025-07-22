@@ -85,8 +85,9 @@ sudo ./install_zapret.sh
 ## 📂 Структура файлов после установки
 
 ```
-/usr/local/share/xray/zapret.dat          # 📄 Основной файл zapрет.dat
+/usr/local/share/xray/zapret.dat          # 📄 Основной файл zapрет.dat (источник)
  /usr/local/bin/update_zapret.sh           # 🔄 Скрипт автоматического обновления
+/opt/remnanode/zapret.dat                 # 📋 Копия для Docker volume
 /opt/remnanode/docker-compose.yml         # 🐳 Обновленный docker-compose.yml
 /var/log/zapret_update.log                # 📊 Логи автоматических обновлений
 ```
@@ -104,7 +105,7 @@ services:
         env_file:
             - .env
         volumes:
-            - '/usr/local/share/xray/zapret.dat:/usr/local/share/xray/zapрет.dat:ro'
+            - './zapret.dat:/usr/local/share/xray/zapret.dat'
 ```
 
 ## 🔧 Управление
@@ -142,7 +143,8 @@ sudo ./uninstall_zapret.sh
 ```
 
 Скрипт удаления:
-- ❌ Удаляет основной файл zapret.dat из /usr/local/share/xray/
+- ❌ Удаляет основной файл zapрет.dat из /usr/local/share/xray/
+- ❌ Удаляет копию zapрет.dat из /opt/remnanode/
 - ⏰ Удаляет задачу cron
 - 🐳 Удаляет volume из docker-compose.yml (с созданием резервной копии)
 - 📊 Удаляет логи
@@ -154,6 +156,7 @@ sudo ./uninstall_zapret.sh
 ```bash
 ls -la /usr/local/share/xray/zapret.dat
 ls -la /usr/local/bin/update_zapret.sh
+ls -la /opt/remnanode/zapret.dat
 ```
 
 ### Проверка Docker volume
