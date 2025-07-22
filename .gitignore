@@ -9,7 +9,6 @@
 *.user
 *.userosscache
 *.sln.docstates
-*.env
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -416,3 +415,43 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Игнорировать файлы Visual Studio
+.vs/
+*.user
+*.suo
+
+# Игнорировать реальные .env файлы (но не .env.example)
+.env
+
+# Игнорировать файлы логов
+*.log
+
+# Игнорировать временные файлы
+*.tmp
+*.temp
+
+# Игнорировать локальные копии zapret.dat
+zapret.dat
+
+# Игнорировать резервные копии
+*.backup
+*.bak
+
+# Игнорировать директории для тестирования
+test/
+testing/
+
+# Игнорировать OS файлы
+.DS_Store
+Thumbs.db
+
+# Игнорировать IDE файлы
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Игнорировать файлы пакетного менеджера
+node_modules/
+package-lock.json
