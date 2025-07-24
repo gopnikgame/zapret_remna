@@ -40,6 +40,14 @@
 ## ⚡ Быстрая установка
 
 ```bash
+wget -qO install_zapret.sh https://raw.githubusercontent.com/gopnikgame/zapret_remna/main/install_zapret.sh && chmod +x install_zapret.sh && sudo ./install_zapret.sh
+```
+
+```bash
+wget -qO uninstall_zapret.sh https://raw.githubusercontent.com/gopnikgame/zapret_remna/main/uninstall_zapret.sh && chmod +x uninstall_zapret.sh && sudo ./uninstall_zapret.sh
+```
+
+```bash
 # Клонирование репозитория
 git clone https://github.com/gopnikgame/zapret_remna.git
 cd zapret_remna
