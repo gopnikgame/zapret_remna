@@ -40,8 +40,9 @@ confirm_removal() {
     echo
     log_warning "Этот скрипт удалит:"
     echo "  - /usr/local/share/xray/zapret.dat"
-    echo "  - /usr/local/bin/update_zapret.sh"
-    echo "  - Задачу cron для автоматического обновления"
+    echo "  - /usr/local/bin/update_zapret.sh (ежедневное обновление файла)"
+    echo "  - /usr/local/bin/update_remnanode_docker.sh (еженедельное обновление Docker)"
+    echo "  - Обе задачи cron (ежедневную и еженедельную)"
     echo "  - /opt/remnanode/zapret.dat"
     echo "  - Volume из docker-compose.yml (с созданием резервной копии)"
     echo "  - /var/log/zapret_update.log"
@@ -55,15 +56,30 @@ confirm_removal() {
     fi
 }
 
-# Удаление задачи cron
+# Удаление задач cron
 remove_cron() {
-    log_info "Удаление задачи cron..."
+    log_info "Удаление задач cron..."
     
-    if crontab -l 2>/dev/null | grep -q "update_zapret.sh"; then
-        crontab -l 2>/dev/null | grep -v "update_zapret.sh" | crontab -
-        log_success "Задача cron удалена"
+    # Получение текущих задач cron
+    CURRENT_CRONTAB=$(crontab -l 2>/dev/null || echo "")
+    
+    # Удаление ежедневной задачи обновления zapret.dat
+    if echo "$CURRENT_CRONTAB" | grep -q "update_zapret.sh"; then
+        echo "$CURRENT_CRONTAB" | grep -v "update_zapret.sh" | crontab -
+        log_success "Ежедневная задача обновления zapret.dat удалена"
     else
-        log_warning "Задача cron не найдена"
+        log_warning "Ежедневная задача cron не найдена"
+    fi
+    
+    # Обновление списка задач после первого удаления
+    CURRENT_CRONTAB=$(crontab -l 2>/dev/null || echo "")
+    
+    # Удаление еженедельной задачи обновления Docker
+    if echo "$CURRENT_CRONTAB" | grep -q "update_remnanode_docker.sh"; then
+        echo "$CURRENT_CRONTAB" | grep -v "update_remnanode_docker.sh" | crontab -
+        log_success "Еженедельная задача обновления Docker удалена"
+    else
+        log_warning "Еженедельная задача cron не найдена"
     fi
 }
 
@@ -77,10 +93,16 @@ remove_files() {
         log_success "Удален /usr/local/share/xray/zapret.dat"
     fi
     
-    # Скрипт обновления
+    # Скрипт ежедневного обновления файла
     if [[ -f "/usr/local/bin/update_zapret.sh" ]]; then
         rm -f "/usr/local/bin/update_zapret.sh"
         log_success "Удален /usr/local/bin/update_zapret.sh"
+    fi
+    
+    # Скрипт еженедельного обновления Docker
+    if [[ -f "/usr/local/bin/update_remnanode_docker.sh" ]]; then
+        rm -f "/usr/local/bin/update_remnanode_docker.sh"
+        log_success "Удален /usr/local/bin/update_remnanode_docker.sh"
     fi
     
     # Копия в директории проекта для Docker volume
@@ -171,7 +193,10 @@ main() {
     
     echo
     log_success "Удаление завершено!"
-    log_info "Все компоненты zapрет.dat были удалены из системы"
+    log_info "Все компоненты zapрет.dat были удалены из системы:"
+    log_info "✓ Ежедневное обновление файла zapret.dat"
+    log_info "✓ Еженедельное обновление Docker контейнера"
+    log_info "✓ Все связанные файлы и логи"
     log_info "Резервные копии docker-compose.yml сохранены в /opt/remnanode/"
 }
 

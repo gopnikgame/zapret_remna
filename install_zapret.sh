@@ -70,15 +70,16 @@ download_zapret() {
     fi
 }
 
-# Создание скрипта обновления
+# Создание скрипта обновления zapret.dat (без перезапуска Docker)
 create_update_script() {
-    log_info "Создание скрипта автоматического обновления..."
+    log_info "Создание скрипта автоматического обновления zapret.dat..."
     
     cat > /usr/local/bin/update_zapret.sh << 'EOF'
 #!/bin/bash
 
 # Скрипт автоматического обновления zapret.dat
 # Запускается ежедневно в 0:00
+# НЕ перезапускает Docker контейнер (volume остается активным)
 
 ZAPRET_URL="https://github.com/kutovoys/ru_gov_zapret/releases/latest/download/zapret.dat"
 ZAPRET_PATH="/usr/local/share/xray/zapret.dat"
@@ -112,7 +113,7 @@ fi
 
 # Проверка изменений в файле
 if [[ -f "$ZAPRET_PATH" ]] && cmp -s "$TEMP_FILE" "$ZAPRET_PATH"; then
-    log_message "zapret.dat не изменился, перезапуск не требуется"
+    log_message "zapret.dat не изменился, обновление не требуется"
     rm "$TEMP_FILE"
     exit 0
 fi
@@ -125,42 +126,88 @@ log_message "zapret.dat обновлен в $ZAPRET_PATH"
 if [[ -d "$REMNANODE_PATH" ]]; then
     cp "$ZAPRET_PATH" "$REMNANODE_PATH/zapret.dat"
     log_message "zapret.dat скопирован в $REMNANODE_PATH/zapret.dat"
+    log_message "Docker контейнер будет использовать обновленный файл через volume (перезапуск не требуется)"
 else
     log_message "WARNING: Директория RemnaNode не найдена в $REMNANODE_PATH"
 fi
 
-# Перезапуск RemnaNode для применения обновлений
-if [[ -d "$REMNANODE_PATH" ]] && [[ -f "$REMNANODE_PATH/docker-compose.yml" ]]; then
-    log_message "Перезапуск RemnaNode для применения обновленного zapret.dat..."
-    cd "$REMNANODE_PATH"
-    docker compose pull >> "$LOG_FILE" 2>&1
-    docker compose down >> "$LOG_FILE" 2>&1
-    docker compose up -d >> "$LOG_FILE" 2>&1
-    log_message "RemnaNode перезапущен"
-else
-    log_message "WARNING: Файл docker-compose.yml не найден в $REMNANODE_PATH"
-fi
-
-log_message "Обновление завершено"
+log_message "Обновление zapret.dat завершено (без перезапуска Docker)"
 EOF
 
     chmod +x /usr/local/bin/update_zapret.sh
-    log_success "Скрипт обновления создан в /usr/local/bin/update_zapret.sh"
+    log_success "Скрипт обновления zapret.dat создан в /usr/local/bin/update_zapret.sh"
+}
+
+# Создание скрипта еженедельного обновления Docker контейнера
+create_docker_update_script() {
+    log_info "Создание скрипта еженедельного обновления Docker контейнера..."
+    
+    cat > /usr/local/bin/update_remnanode_docker.sh << 'EOF'
+#!/bin/bash
+
+# Скрипт еженедельного обновления Docker контейнера RemnaNode
+# Запускается по воскресеньям в 23:30 для поддержания актуальной версии
+
+REMNANODE_PATH="/opt/remnanode"
+LOG_FILE="/var/log/zapret_update.log"
+
+# Функция логирования
+log_message() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+}
+
+log_message "Начало еженедельного обновления Docker контейнера RemnaNode"
+
+# Проверка наличия docker-compose.yml
+if [[ -d "$REMNANODE_PATH" ]] && [[ -f "$REMNANODE_PATH/docker-compose.yml" ]]; then
+    log_message "Обновление Docker образа и перезапуск RemnaNode..."
+    cd "$REMNANODE_PATH"
+    
+    # Обновление образа и перезапуск контейнера
+    docker compose pull >> "$LOG_FILE" 2>&1
+    docker compose down >> "$LOG_FILE" 2>&1
+    docker compose up -d >> "$LOG_FILE" 2>&1
+    
+    log_message "RemnaNode Docker контейнер успешно обновлен и перезапущен"
+else
+    log_message "ERROR: Файл docker-compose.yml не найден в $REMNANODE_PATH"
+    exit 1
+fi
+
+log_message "Еженедельное обновление Docker контейнера завершено"
+EOF
+
+    chmod +x /usr/local/bin/update_remnanode_docker.sh
+    log_success "Скрипт еженедельного обновления Docker создан в /usr/local/bin/update_remnanode_docker.sh"
 }
 
 # Настройка cron для автоматического обновления
 setup_cron() {
     log_info "Настройка автоматического обновления через cron..."
     
-    # Создание задачи cron
-    CRON_JOB="0 0 * * * /usr/local/bin/update_zapret.sh"
+    # Ежедневное обновление zapret.dat в 0:00 (без перезапуска Docker)
+    DAILY_CRON_JOB="0 0 * * * /usr/local/bin/update_zapret.sh"
     
-    # Проверка существования задачи
-    if crontab -l 2>/dev/null | grep -q "update_zapret.sh"; then
-        log_warning "Задача cron уже существует"
+    # Еженедельное обновление Docker контейнера по воскресеньям в 23:30
+    WEEKLY_CRON_JOB="30 23 * * 0 /usr/local/bin/update_remnanode_docker.sh"
+    
+    # Получение текущих задач cron
+    CURRENT_CRONTAB=$(crontab -l 2>/dev/null || echo "")
+    
+    # Проверка и добавление ежедневной задачи
+    if echo "$CURRENT_CRONTAB" | grep -q "update_zapret.sh"; then
+        log_warning "Ежедневная задача обновления zapret.dat уже существует"
     else
-        (crontab -l 2>/dev/null; echo "$CRON_JOB") | crontab -
-        log_success "Задача cron добавлена: ежедневное обновление в 0:00"
+        (echo "$CURRENT_CRONTAB"; echo "$DAILY_CRON_JOB") | crontab -
+        log_success "Ежедневная задача обновления zapret.dat добавлена: каждый день в 0:00"
+    fi
+    
+    # Проверка и добавление еженедельной задачи
+    if echo "$CURRENT_CRONTAB" | grep -q "update_remnanode_docker.sh"; then
+        log_warning "Еженедельная задача обновления Docker уже существует"
+    else
+        (crontab -l 2>/dev/null; echo "$WEEKLY_CRON_JOB") | crontab -
+        log_success "Еженедельная задача обновления Docker добавлена: по воскресеньям в 23:30"
     fi
 }
 
@@ -217,9 +264,9 @@ EOF
     log_success "docker-compose.yml настроен для использования ./zapret.dat"
 }
 
-# Перезапуск RemnaNode
+# Перезапуск RemnaNode (только при первой установке)
 restart_remnanode() {
-    log_info "Перезапуск RemnaNode для применения изменений..."
+    log_info "Перезапуск RemnaNode для применения изменений при первой установке..."
     
     if [[ -d "/opt/remnanode" ]] && [[ -f "/opt/remnanode/docker-compose.yml" ]]; then
         cd /opt/remnanode
@@ -230,12 +277,15 @@ restart_remnanode() {
             return 1
         fi
         
-        # Обновление и перезапуск
+        # Обновление и перезапуск для применения нового volume
+        log_info "Первая установка: обновление образа и перезапуск для применения volume"
         docker compose pull
         docker compose down
         docker compose up -d
         
-        log_success "RemnaNode успешно перезапущен"
+        log_success "RemnaNode успешно перезапущен с новым volume zapret.dat"
+        log_info "В дальнейшем при ежедневных обновлениях файла Docker перезапускаться не будет"
+        log_info "Еженедельное обновление Docker контейнера настроено на воскресенье 23:30"
     else
         log_error "Директория /opt/remnanode не найдена или отсутствует docker-compose.yml"
     fi
@@ -249,13 +299,16 @@ main() {
     create_directories
     download_zapret
     create_update_script
+    create_docker_update_script
     setup_cron
     update_docker_compose
     restart_remnanode
     
     log_success "Установка завершена!"
-    log_info "zapret.dat будет автоматически обновляться ежедневно в 0:00"
-    log_info "Логи обновлений можно найти в /var/log/zapret_update.log"
+    log_info "Настроена следующая система обновлений:"
+    log_info "📅 Ежедневно в 0:00 - обновление zapret.dat (без перезапуска Docker)"
+    log_info "🔄 По воскресеньям в 23:30 - обновление Docker контейнера RemnaNode"
+    log_info "📊 Логи всех операций: /var/log/zapret_update.log"
 }
 
 # Запуск основной функции
